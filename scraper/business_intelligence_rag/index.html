@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Market Intelligence Chat</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+        }
+        .chat-header {
+            background: #1e293b;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            max-width: 80%;
+            line-height: 1.5;
+            white-space: pre-wrap; /* Păstrează așezarea în pagină a textului de la Llama3 */
+        }
+        .user-message {
+            background: #3b82f6;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 2px;
+        }
+        .bot-message {
+            background: #e2e8f0;
+            color: #0f172a;
+            margin-right: auto;
+            border-bottom-left-radius: 2px;
+        }
+        .sources-count {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 8px;
+            display: block;
+            font-style: italic;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 4px;
+        }
+        .input-area {
+            display: flex;
+            padding: 15px;
+            background: #f8fafc;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 66px;
+            outline: none;
+            font-size: 1rem;
+            padding-left: 20px;
+        }
+        .input-area button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            margin-left: 10px;
+            border-radius: 66px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .input-area button:hover {
+            background: #059669;
+        }
+        .input-area button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">🤖 E-Commerce AI Agent (Hybrid RAG)</div>
+    <div class="chat-box" id="chatBox">
+        <div class="message bot-message">Salut! Cum te pot ajuta astăzi cu informații din catalogul hibrid de produse?</div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Scrie o întrebare aici..." onkeypress="handleKeyPress(event)">
+        <button id="sendBtn" onclick="sendMessage()">Trimite</button>
+    </div>
+</div>
+
+<script>
+    async function sendMessage() {
+        const inputField = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatBox = document.getElementById('chatBox');
+        const query = inputField.value.trim();
+
+        if (!query) return;
+
+        // Dezactivăm controalele pe parcursul rulării
+        inputField.value = '';
+        inputField.disabled = true;
+        sendBtn.disabled = true;
+
+        // 1. Adăugăm mesajul utilizatorului în interfață
+        chatBox.innerHTML += `<div class="message user-message">${query}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        // 2. Adăugăm elementul temporar de încărcare (Loading)
+        const botMessageId = 'loading-' + Date.now();
+        chatBox.innerHTML += `<div class="message bot-message" id="${botMessageId}">Llama3 gândește...</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            // 3. Executăm apelul Fetch direct către serverul tău local FastAPI
+            const response = await fetch('http://127.0.0.1:8000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: query })
+            });
+
+            const targetDiv = document.getElementById(botMessageId);
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Înlocuim textul de loading cu răspunsul real primit în JSON
+                targetDiv.innerText = data.answer;
+                targetDiv.innerHTML += `<span class="sources-count">🔍 Produse verificate hibrid (Web2 + FAISS): ${data.sources_scanned}</span>`;
+            } else {
+                targetDiv.innerText = "Eroare: Serverul local FastAPI a întâmpinat o problemă.";
+            }
+        } catch (error) {
+            console.error(error);
+            document.getElementById(botMessageId).innerText = "Eroare critică: Nu m-am putut conecta la backend-ul FastAPI. Verifică dacă uvicorn rulează.";
+        }
+
+        // Re-activăm controalele interfeței pentru o nouă întrebare
+        inputField.disabled = false;
+        sendBtn.disabled = false;
+        inputField.focus();
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+</script>
+
+</body>
+</html>
